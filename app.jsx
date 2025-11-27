@@ -429,7 +429,7 @@ const AboutView = () => (
                     Passionate about bridging the gap between hardware and software, I specialize in embedded controls, computer vision, and machine learning. My work focuses on building intelligent systems that can perceive, plan, and act in the physical world.
                 </p>
                 <p>
-                    When I'm not coding or soldering, you can find me working on the driverless controls for the U of T Formula Racing team or exploring new developments in AI.
+                    When I'm not coding, you can find me working on the driverless controls for the U of T Formula Racing team or exploring new developments in AI.
                 </p>
             </div>
         </Card>
@@ -445,7 +445,7 @@ const AboutView = () => (
                 transition={{ duration: 0.5, delay: 0.2 }}
             >
                 <img 
-                    src="https://upload.wikimedia.org/wikipedia/en/thumb/0/04/Utoronto_coat.svg/400px-Utoronto_coat.svg.png" 
+                    src="/assets/logo.png" 
                     alt="University of Toronto" 
                     className="w-24 h-auto md:w-32"
                 />
