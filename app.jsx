@@ -427,10 +427,10 @@ const AboutView = () => (
                     Hello! I'm Rodean, a Mechanical Engineering student at the University of Toronto with a deep passion for robotics and autonomous systems.
                 </p>
                 <p>
-                    Passionate about bridging the gap between hardware and software, I specialize in embedded controls, computer vision, and machine learning. My work focuses on building intelligent systems that can perceive, plan, and act in the physical world.
+                    Eager to bridge the gap between hardware and software, I specialize in controls, computer vision, and machine learning. My work focuses on building intelligent systems that can solve cool problems in the physical world.
                 </p>
                 <p>
-                    When I'm not coding, you can find me working on the driverless controls for the U of T Formula Racing team or exploring new developments in AI.
+                    When I'm not coding, you can find me lifting, grappling, or watching movies.
                 </p>
             </div>
         </Card>
