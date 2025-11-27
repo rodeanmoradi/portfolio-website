@@ -3,106 +3,261 @@ import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 
 // --- Configuration ---
-const ACCENT_COLOR_HEX = 0x3B82F6; // #3B82F6
+const ACCENT_COLOR_HEX = 0xffffff; // White
 const PRIMARY_DARK_HEX = 0x020617; // #020617
-const NUM_NODES = 100;
-const CONNECTION_DISTANCE = 150;
+const NUM_NODES = 150; 
+const CONNECTION_DISTANCE = 200; 
+const MOUSE_INTERACTION_RADIUS = 250; 
 
-// --- 3D Background Component (Pure Three.js) ---
-const ThreeBackground = () => {
+// --- HELPER: Create Circular Texture ---
+const createCircleTexture = () => {
+  const canvas = document.createElement('canvas');
+  const size = 64; 
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  const center = size / 2;
+  ctx.beginPath();
+  ctx.arc(center, center, center - 2, 0, 2 * Math.PI); 
+  ctx.fillStyle = '#ffffff'; 
+  ctx.fill();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+};
+
+const circleTexture = createCircleTexture();
+
+// --- 3D Background Component ---
+const ThreeBackground = ({ activeTab }) => {
   const containerRef = useRef(null);
+  
+  // Store the target rotation based on the active section
+  const sectionRotationTarget = useRef({ x: 0, y: 0 });
+
+  // Update target rotation when activeTab changes
+  // Using monotonic increasing Y values ensures consistent directionality
+  useEffect(() => {
+    switch(activeTab) {
+        case 'home':
+            sectionRotationTarget.current = { x: 0, y: 0 }; 
+            break;
+        case 'about':
+            sectionRotationTarget.current = { x: 0.1, y: 0.5 }; 
+            break;
+        case 'experience':
+            sectionRotationTarget.current = { x: 0, y: 1.0 }; // Continues right
+            break;
+        case 'projects':
+            sectionRotationTarget.current = { x: -0.1, y: 1.5 }; // Continues further right
+            break;
+        default:
+            sectionRotationTarget.current = { x: 0, y: 0 };
+            break;
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // 1. Setup Scene
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(PRIMARY_DARK_HEX);
-    scene.fog = new THREE.Fog(PRIMARY_DARK_HEX, 100, 500);
+    scene.fog = new THREE.Fog(PRIMARY_DARK_HEX, 100, 2000);
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1000);
-    camera.position.z = 300;
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 2000);
+    camera.position.z = 800;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Performance optimization
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     containerRef.current.appendChild(renderer.domElement);
 
-    // 2. Create Geometry (Points)
+    const particleCount = NUM_NODES;
+    const particlesData = []; 
     const particlesGeometry = new THREE.BufferGeometry();
-    const particlesCount = NUM_NODES;
-    const posArray = new Float32Array(particlesCount * 3);
-    
-    // Store original positions for floating animation
-    const originalPositions = [];
+    const particlePositions = new Float32Array(particleCount * 3);
+    const maxConnections = particleCount * particleCount; 
+    const linesGeometry = new THREE.BufferGeometry();
+    const linesPositions = new Float32Array(maxConnections * 3);
+    const linesColors = new Float32Array(maxConnections * 3);
 
-    for(let i = 0; i < particlesCount * 3; i+=3) {
-        const x = (Math.random() - 0.5) * 800;
-        const y = (Math.random() - 0.5) * 600;
-        const z = (Math.random() - 0.5) * 400;
-        
-        posArray[i] = x;
-        posArray[i+1] = y;
-        posArray[i+2] = z;
+    const r = 1200; 
+    const rHalf = r / 2;
 
-        originalPositions.push({x, y, z, phase: Math.random() * Math.PI * 2});
+    for (let i = 0; i < particleCount; i++) {
+        const x = Math.random() * r - rHalf;
+        const y = Math.random() * r - rHalf;
+        const z = Math.random() * r - rHalf;
+
+        particlePositions[i * 3] = x;
+        particlePositions[i * 3 + 1] = y;
+        particlePositions[i * 3 + 2] = z;
+
+        particlesData.push({
+            velocity: new THREE.Vector3(0, 0, 0), 
+            numConnections: 0
+        });
     }
 
-    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3).setUsage(THREE.DynamicDrawUsage));
+    linesGeometry.setAttribute('position', new THREE.BufferAttribute(linesPositions, 3).setUsage(THREE.DynamicDrawUsage));
+    linesGeometry.setAttribute('color', new THREE.BufferAttribute(linesColors, 3).setUsage(THREE.DynamicDrawUsage));
 
-    // Material
     const particlesMaterial = new THREE.PointsMaterial({
-        size: 3,
         color: ACCENT_COLOR_HEX,
+        size: 6.5, 
+        map: circleTexture, 
+        alphaTest: 0.5,
+        blending: THREE.AdditiveBlending,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.9, 
         sizeAttenuation: true
     });
 
-    // Mesh
-    const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
-    scene.add(particlesMesh);
+    const linesMaterial = new THREE.LineBasicMaterial({
+        vertexColors: true,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        linewidth: 6, 
+    });
 
-    // 3. Mouse Interaction
-    let mouseX = 0;
-    let mouseY = 0;
-    let targetX = 0;
-    let targetY = 0;
+    const pointCloud = new THREE.Points(particlesGeometry, particlesMaterial);
+    const linesMesh = new THREE.LineSegments(linesGeometry, linesMaterial);
+    
+    const group = new THREE.Group();
+    group.add(pointCloud);
+    group.add(linesMesh);
+    scene.add(group);
 
-    const windowHalfX = window.innerWidth / 2;
-    const windowHalfY = window.innerHeight / 2;
+    const mouse = new THREE.Vector2(-9999, -9999); 
+    let mouseRotationX = 0;
+    let mouseRotationY = 0;
+    
+    // Internal state for smooth interpolation of section rotation
+    let currentSectionRotationX = 0;
+    let currentSectionRotationY = 0;
+
+    // Scroll tracking variable
+    let scrollY = 0;
 
     const onDocumentMouseMove = (event) => {
-        mouseX = (event.clientX - windowHalfX);
-        mouseY = (event.clientY - windowHalfY);
+        event.preventDefault();
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        
+        mouseRotationY = mouse.x * 0.2; 
+        mouseRotationX = mouse.y * 0.2; 
+    };
+
+    const onDocumentScroll = () => {
+        scrollY = window.scrollY;
     };
 
     document.addEventListener('mousemove', onDocumentMouseMove);
+    document.addEventListener('scroll', onDocumentScroll);
 
-    // 4. Animation Loop
-    const clock = new THREE.Clock();
     let animationFrameId;
+    const _p1 = new THREE.Vector3();
+    const _screenPos = new THREE.Vector3();
 
     const animate = () => {
-        const elapsedTime = clock.getElapsedTime();
+        // 1. Smoothly interpolate current section rotation towards the target (controlled by tabs)
+        currentSectionRotationX += (sectionRotationTarget.current.x - currentSectionRotationX) * 0.02;
+        currentSectionRotationY += (sectionRotationTarget.current.y - currentSectionRotationY) * 0.02;
 
-        targetX = mouseX * 0.05;
-        targetY = mouseY * 0.05;
+        // 2. Calculate Scroll Factor
+        const scrollRotationFactor = scrollY * 0.001; 
 
-        // Rotate scene slightly based on mouse
-        particlesMesh.rotation.y += 0.05 * (targetX * 0.01 - particlesMesh.rotation.y);
-        particlesMesh.rotation.x += 0.05 * (targetY * 0.01 - particlesMesh.rotation.x);
+        // 3. Combine All Rotations
+        // Target = Mouse + Scroll + Section
+        const finalTargetY = mouseRotationY + currentSectionRotationY;
+        const finalTargetX = mouseRotationX + scrollRotationFactor + currentSectionRotationX;
 
-        // Float Animation
-        const positions = particlesGeometry.attributes.position.array;
-        for(let i = 0; i < particlesCount; i++) {
-            const i3 = i * 3;
-            const original = originalPositions[i];
-            
-            // Gentle sine wave float
-            positions[i3 + 1] = original.y + Math.sin(elapsedTime * 0.5 + original.phase) * 10;
+        // Smoothly interpolate the actual group rotation towards the combined target
+        group.rotation.y += (finalTargetY - group.rotation.y) * 0.05;
+        group.rotation.x += (finalTargetX - group.rotation.x) * 0.05;
+
+        let vertexpos = 0;
+        let colorpos = 0;
+        let numConnected = 0;
+
+        for (let i = 0; i < particleCount; i++) {
+            particlesData[i].numConnections = 0;
         }
-        particlesGeometry.attributes.position.needsUpdate = true;
+
+        for (let i = 0; i < particleCount; i++) {
+            const particleData = particlesData[i];
+
+            if (particleData.numConnections >= 20) continue;
+
+            _p1.set(particlePositions[i * 3], particlePositions[i * 3 + 1], particlePositions[i * 3 + 2]);
+            _p1.applyMatrix4(group.matrixWorld);
+            _screenPos.copy(_p1).project(camera); 
+            
+            const distToMouse = Math.sqrt(
+                Math.pow(_screenPos.x - mouse.x, 2) + 
+                Math.pow(_screenPos.y - mouse.y, 2)
+            );
+
+            const ndcRadius = (MOUSE_INTERACTION_RADIUS / window.innerWidth) * 4;
+
+            if (distToMouse > ndcRadius) {
+                continue;
+            }
+
+            let mouseInteractionFactor = 1.0 - (distToMouse / ndcRadius);
+            
+            mouseInteractionFactor *= 2.0; 
+            if (mouseInteractionFactor > 1.0) mouseInteractionFactor = 1.0;
+
+            for (let j = i + 1; j < particleCount; j++) {
+                const particleDataB = particlesData[j];
+                if (particleDataB.numConnections >= 20) continue;
+
+                const dx = particlePositions[i * 3] - particlePositions[j * 3];
+                const dy = particlePositions[i * 3 + 1] - particlePositions[j * 3 + 1];
+                const dz = particlePositions[i * 3 + 2] - particlePositions[j * 3 + 2];
+                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                if (dist < CONNECTION_DISTANCE) {
+                    particleData.numConnections++;
+                    particleDataB.numConnections++;
+
+                    const structuralAlpha = 1.0 - dist / CONNECTION_DISTANCE;
+                    let finalAlpha = structuralAlpha * mouseInteractionFactor;
+                    if (finalAlpha > 1.0) finalAlpha = 1.0;
+
+                    if (finalAlpha <= 0) continue;
+
+                    linesPositions[vertexpos++] = particlePositions[i * 3];
+                    linesPositions[vertexpos++] = particlePositions[i * 3 + 1];
+                    linesPositions[vertexpos++] = particlePositions[i * 3 + 2];
+
+                    linesPositions[vertexpos++] = particlePositions[j * 3];
+                    linesPositions[vertexpos++] = particlePositions[j * 3 + 1];
+                    linesPositions[vertexpos++] = particlePositions[j * 3 + 2];
+
+                    const color = new THREE.Color(ACCENT_COLOR_HEX);
+                    
+                    linesColors[colorpos++] = color.r * finalAlpha;
+                    linesColors[colorpos++] = color.g * finalAlpha;
+                    linesColors[colorpos++] = color.b * finalAlpha;
+
+                    linesColors[colorpos++] = color.r * finalAlpha;
+                    linesColors[colorpos++] = color.g * finalAlpha;
+                    linesColors[colorpos++] = color.b * finalAlpha;
+
+                    numConnected++;
+                }
+            }
+        }
+
+        linesMesh.geometry.setDrawRange(0, numConnected * 2);
+        linesMesh.geometry.attributes.position.needsUpdate = true;
+        linesMesh.geometry.attributes.color.needsUpdate = true;
+        pointCloud.geometry.attributes.position.needsUpdate = true;
 
         renderer.render(scene, camera);
         animationFrameId = requestAnimationFrame(animate);
@@ -110,7 +265,6 @@ const ThreeBackground = () => {
 
     animate();
 
-    // 5. Resize Handler
     const handleResize = () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
@@ -119,45 +273,33 @@ const ThreeBackground = () => {
 
     window.addEventListener('resize', handleResize);
 
-    // Cleanup
     return () => {
         window.removeEventListener('resize', handleResize);
         document.removeEventListener('mousemove', onDocumentMouseMove);
+        document.removeEventListener('scroll', onDocumentScroll);
         cancelAnimationFrame(animationFrameId);
         if (containerRef.current && containerRef.current.contains(renderer.domElement)) {
             containerRef.current.removeChild(renderer.domElement);
         }
         particlesGeometry.dispose();
+        linesGeometry.dispose();
         particlesMaterial.dispose();
+        linesMaterial.dispose();
         renderer.dispose();
     };
-  }, []);
+  }, []); // Empty dependency array intentionally, we use refs for updates
 
   return <div ref={containerRef} className="fixed inset-0 z-0" />;
 };
 
 // --- UI Components ---
 
-const SectionTitle = ({ children, id }) => (
-  <motion.h2 
-    id={id}
-    className="text-2xl font-bold text-center pt-10 mb-12" 
-    style={{ color: '#3B82F6' }}
-    initial={{ opacity: 0, y: 30 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, amount: 0.8 }}
-  >
-    {children}
-  </motion.h2>
-);
-
 const Card = ({ children, delay = 0, onClick }) => (
   <motion.div 
-    className={`w-full max-w-2xl bg-slate-900/70 backdrop-blur-sm p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-all duration-300 ${onClick ? 'cursor-pointer' : ''}`}
-    initial={{ opacity: 0, y: 50 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, amount: 0.3 }}
-    transition={{ duration: 0.6, delay }}
+    className={`w-full max-w-3xl bg-slate-900/70 backdrop-blur-sm p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-all duration-300 ${onClick ? 'cursor-pointer' : ''}`}
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.4, delay }}
     whileHover={{ 
         boxShadow: `0 0 5px #3B82F6, 0 0 15px #3B82F633`, 
         scale: 1.01 
@@ -180,10 +322,21 @@ const SkillPill = ({ children }) => (
   </motion.span>
 );
 
+const SectionContainer = ({ children, className = "" }) => (
+    <motion.div
+        initial={{ opacity: 0, x: 0 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`w-full max-w-4xl mx-auto pt-24 pb-12 px-4 min-h-[80vh] flex flex-col items-center justify-center gap-8 ${className}`}
+    >
+        {children}
+    </motion.div>
+);
+
 // --- Lightbox/Modal Component ---
 
 const Lightbox = ({ isVisible, onClose }) => {
-  // Placeholder URLs to prevent broken images if uploads are missing
   const robotDemoUrl = "https://placehold.co/800x600/1E3A8A/FFFFFF?text=Self-Balancing+Robot+Demo"; 
   const kalmanDemoUrl = "https://placehold.co/800x600/1E3A8A/FFFFFF?text=Kalman+Filter+Graph";
 
@@ -230,195 +383,238 @@ const Lightbox = ({ isVisible, onClose }) => {
   );
 };
 
-// --- Main App Component ---
-const App = () => {
-  const [isLightboxVisible, setIsLightboxVisible] = useState(false);
-  const heroRef = useRef(null);
-  const [showNav, setShowNav] = useState(false);
+// --- Page Views ---
 
-  // Scroll listener for sticky navigation
-  useEffect(() => {
-    const handleScroll = () => {
-      if (heroRef.current) {
-        const heroBottom = heroRef.current.offsetHeight;
-        setShowNav(window.scrollY > heroBottom * 0.8);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  return (
-    <div style={{ fontFamily: '"JetBrains Mono", monospace' }} className="bg-slate-950 text-gray-200 min-h-screen overflow-x-hidden selection:bg-blue-500 selection:text-white">
-      
-      {/* 3D Background */}
-      <ThreeBackground />
-
-      {/* Sticky Navigation Bar */}
-      <motion.nav
-        className="fixed top-0 left-0 w-full bg-slate-950/80 backdrop-blur-md z-40 border-b border-white/5"
-        initial={false}
-        animate={{ y: showNav ? 0 : '-100%' }}
-        transition={{ duration: 0.3 }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-14">
-                <div className="flex items-center">
-                    <span className="text-sm font-bold text-white tracking-wider">R. MORADI</span>
-                </div>
-                <div className="flex space-x-4">
-                    <a href="#projects" className="text-sm font-medium text-gray-300 hover:text-blue-400 transition duration-300">Projects</a>
-                    <a href="#experience" className="text-sm font-medium text-gray-300 hover:text-blue-400 transition duration-300">Experience</a>
-                    <a href="#skills" className="text-sm font-medium text-gray-300 hover:text-blue-400 transition duration-300">Skills</a>
-                </div>
-            </div>
-        </div>
-      </motion.nav>
-
-      {/* Main Content Overlay */}
-      <div className="relative z-10 min-h-screen pt-4 pb-20 max-w-7xl mx-auto">
-
-        {/* Hero Section */}
-        <header ref={heroRef} className="text-center py-24 md:py-32 space-y-6 px-4">
+// The dedicated Landing Page (Home)
+const HomeView = () => (
+    <SectionContainer className="text-center">
+        <motion.div 
+            className="space-y-8 max-w-2xl"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+        >
             <motion.h1 
-                className="text-4xl md:text-6xl font-extrabold text-white tracking-tight"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8 }}
-                style={{ textShadow: '0 0 20px rgba(59, 130, 246, 0.5)' }}
+                className="text-5xl md:text-7xl font-extrabold text-white tracking-tight"
+                style={{ textShadow: '0 0 30px rgba(59, 130, 246, 0.4)' }}
             >
                 Rodean Moradi
             </motion.h1>
+            
             <motion.p 
-                className="text-lg md:text-xl font-light text-blue-400"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
+                className="text-xl md:text-2xl font-bold bg-gradient-to-r from-blue-400 to-white bg-clip-text text-transparent"
             >
-                Robotics & AI Engineer | U of T Mechanical Engineering
+                Robotics Engineer | UofT Mechanical Engineering
             </motion.p>
+        </motion.div>
+    </SectionContainer>
+);
+
+// The separate About Page
+const AboutView = () => (
+    <SectionContainer>
+        <h2 className="text-3xl font-bold text-white mb-6 border-b border-blue-500/30 pb-4 inline-block">About Me</h2>
+        <Card>
+            <div className="space-y-4 text-gray-300 leading-relaxed text-lg">
+                <p>
+                    Hello! I'm Rodean, a Mechanical Engineering student at the University of Toronto with a deep passion for robotics and autonomous systems.
+                </p>
+                <p>
+                    Passionate about bridging the gap between hardware and software, I specialize in embedded controls, computer vision, and machine learning. My work focuses on building intelligent systems that can perceive, plan, and act in the physical world.
+                </p>
+                <p>
+                    When I'm not coding or soldering, you can find me working on the driverless controls for the U of T Formula Racing team or exploring new developments in AI.
+                </p>
+            </div>
+        </Card>
+
+        {/* Education Section */}
+        <div className="flex flex-col md:flex-row items-center gap-6 w-full max-w-3xl mt-4">
+            
+            {/* Logo with slight white background for visibility */}
             <motion.div 
-                className="flex justify-center space-x-6 pt-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.4 }}
+                className="bg-slate-200/90 p-6 rounded-xl shadow-lg shadow-blue-500/10 flex-shrink-0 border border-slate-600"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
             >
-                <a href="https://linkedin.com/in/rodean-moradi/" target="_blank" className="text-sm text-gray-300 hover:text-blue-400 transition duration-300 flex items-center group">
-                    <span className="bg-slate-800 p-2 rounded-full mr-2 group-hover:bg-blue-500/20 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
+                <img 
+                    src="https://upload.wikimedia.org/wikipedia/en/thumb/0/04/Utoronto_coat.svg/400px-Utoronto_coat.svg.png" 
+                    alt="University of Toronto" 
+                    className="w-24 h-auto md:w-32"
+                />
+            </motion.div>
+
+            {/* Education Card */}
+            <div className="flex-grow w-full">
+                <Card delay={0.3}>
+                    <div className="flex flex-col h-full justify-center">
+                        <h3 className="text-xl font-semibold text-white mb-1">Education</h3>
+                        <p className="text-blue-400 font-medium text-lg">University of Toronto</p>
+                        <p className="text-gray-300">BASc in Mechanical Engineering</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            <span className="text-xs bg-blue-500/10 text-blue-300 px-2 py-1 rounded border border-blue-500/20">Minor in Robotics</span>
+                            <span className="text-xs bg-blue-500/10 text-blue-300 px-2 py-1 rounded border border-blue-500/20">Minor in AI</span>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+        </div>
+    </SectionContainer>
+);
+
+const ProjectsView = ({ onOpenLightbox }) => (
+    <SectionContainer>
+        <h2 className="text-3xl font-bold text-white mb-6 border-b border-blue-500/30 pb-4 inline-block">Featured Projects</h2>
+        
+        {/* Project 1 */}
+        <Card delay={0.1}>
+            <div className="flex justify-between items-start mb-3">
+                <h3 className="text-2xl font-semibold text-white">ML Boxing Coach</h3>
+                <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded font-bold border border-blue-500/30">AI/CV</span>
+            </div>
+            <p className="text-sm text-gray-400 mb-4">Python, OpenCV, TensorFlow, PyTorch</p>
+            <ul className="space-y-3 text-gray-300 list-disc pl-5 text-sm mb-6 leading-relaxed">
+                <li>Built a real-time boxing punch classification system (6 types) using <span className="text-blue-400 font-semibold">TensorFlow Lite's MoveNet Thunder</span> for pose keypoint extraction (25-30 FPS).</li>
+                <li>Trained a custom <span className="text-blue-400 font-semibold">PyTorch classifier</span> achieving <span className="text-green-400 font-semibold">84% accuracy</span> on 2,000-5,000 labeled punch samples.</li>
+                <li>Engineered a low-latency inference pipeline, maintaining end-to-end prediction latency under <span className="text-green-400 font-semibold">70 ms</span>.</li>
+            </ul>
+            <div className="flex justify-end">
+                <a href="https://github.com/rodeanmoradi" target="_blank" className="text-sm font-medium text-blue-400 hover:text-white flex items-center transition duration-300 border-b border-transparent hover:border-white">
+                    View Code
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 ml-1"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.37-1-3.3.26-.52.26-1.42 0-2.05 0 0-1.5-.5-5 1.5-1.2-.35-2.4-.35-3.6 0-3.5-2-5-1.5-5-1.5-.27.63-.27 1.53 0 2.05-.73.93-1.08 2.05-1 3.3 0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.25.86-.55 2.51-1 3.5v1"/></svg>
+                </a>
+            </div>
+        </Card>
+
+        {/* Project 2 - Clickable */}
+        <Card onClick={onOpenLightbox} delay={0.2}>
+            <div className="flex justify-between items-start mb-3">
+                <h3 className="text-2xl font-semibold text-white">Self-Balancing Robot</h3>
+                <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded font-bold border border-blue-500/30">Embedded</span>
+            </div>
+            <p className="text-sm text-gray-400 mb-4">C++, Arduino, Eigen, PID Control, Kalman Filter</p>
+            <ul className="space-y-3 text-gray-300 list-disc pl-5 text-sm mb-6 leading-relaxed">
+                <li>Developed an embedded control pipeline in <span className="text-blue-400 font-semibold">C++ on Arduino</span> with a consistent <span className="text-green-400 font-semibold">100 Hz loop rate (10ms latency)</span>.</li>
+                <li>Engineered a custom <span className="text-blue-400 font-semibold">Kalman Filter</span> using the <span className="text-blue-400 font-semibold">Eigen library</span> to fuse IMU data, providing a robust ±2° tilt estimate.</li>
+                <li>Implemented and fine-tuned a <span className="text-blue-400 font-semibold">PID control algorithm</span> to successfully achieve stable self-balancing within ±15° of vertical.</li>
+            </ul>
+            <div className="flex justify-end items-center text-blue-400 text-sm font-medium hover:text-blue-300 transition-colors">
+                <span className="mr-2">Click for Demos</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+            </div>
+        </Card>
+    </SectionContainer>
+);
+
+const ExperienceView = () => (
+    <SectionContainer>
+        <h2 className="text-3xl font-bold text-white mb-6 border-b border-blue-500/30 pb-4 inline-block">Experience</h2>
+        
+        <Card delay={0.1}>
+            <h3 className="text-xl font-semibold text-white">Robotics Software Engineer | Driverless Controls</h3>
+            <p className="text-sm mb-4 text-blue-400">University of Toronto Formula Racing | Sep. 2024 - Present</p>
+            <ul className="space-y-2 text-gray-300 list-disc pl-5 text-sm leading-relaxed">
+                <li>Contributed to the development of a <span className="text-white font-medium">Linear Time-Varying Model Predictive Control (LTV-MPC)</span> algorithm in C++ using ROS2 for high-speed autonomous path tracking.</li>
+                <li>Reduced path deviation by 40% through comprehensive testing and simulation in RViz and Gazebo.</li>
+                <li>Conducted comparative analysis of 4+ control algorithms (Stanley, PID, Pure Pursuit, MPC variants) to support LTV-MPC adoption.</li>
+            </ul>
+        </Card>
+
+        <Card delay={0.2}>
+            <h3 className="text-xl font-semibold text-white">Research Intern | EV Batteries and Chargers</h3>
+            <p className="text-sm mb-4 text-blue-400">ATOMS Laboratory, Toronto, ON | May - Aug. 2025</p>
+            <ul className="space-y-2 text-gray-300 list-disc pl-5 text-sm leading-relaxed">
+                <li>Developed Python scripts with <span className="text-white font-medium">Pandas and Matplotlib</span> to automate battery testing CSV processing, reducing manual analysis time by 5x.</li>
+                <li>Built multiphysics simulations in <span className="text-white font-medium">COMSOL</span> to model thermal properties of Lithium-ion batteries, validating results within 3% error.</li>
+                <li>3D printed safety components designed in SOLIDWORKS to improve reliability during testing.</li>
+            </ul>
+        </Card>
+    </SectionContainer>
+);
+
+// --- Main App Component ---
+const App = () => {
+  const [activeTab, setActiveTab] = useState('home');
+  const [isLightboxVisible, setIsLightboxVisible] = useState(false);
+
+  // Tabs configuration
+  const tabs = [
+    { id: 'about', label: 'About' },
+    { id: 'experience', label: 'Experience' },
+    { id: 'projects', label: 'Projects' },
+  ];
+
+  return (
+    <div style={{ fontFamily: '"Poppins", sans-serif' }} className="bg-slate-950 text-gray-200 min-h-screen overflow-hidden selection:bg-blue-500 selection:text-white flex flex-col">
+      
+      {/* 3D Background */}
+      <ThreeBackground activeTab={activeTab} />
+
+      {/* Navigation Bar */}
+      <nav className="fixed top-0 left-0 w-full bg-slate-950/80 backdrop-blur-md z-40 border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+                <div 
+                    className="flex items-center cursor-pointer px-4 py-2 rounded-lg transition-all duration-300 hover:bg-white/5" 
+                    onClick={() => setActiveTab('home')}
+                >
+                    <span className="text-lg font-normal text-white tracking-wider">Rodean Moradi</span>
+                </div>
+                <div className="flex space-x-1 sm:space-x-4">
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative ${
+                                activeTab === tab.id 
+                                ? 'text-white' 
+                                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                            }`}
+                        >
+                            {tab.label}
+                            {activeTab === tab.id && (
+                                <motion.div
+                                    layoutId="activeTab"
+                                    className="absolute inset-0 bg-blue-500/10 rounded-lg border border-blue-500/30 -z-10"
+                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                />
+                            )}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+      </nav>
+
+      {/* Main Content Area */}
+      <main className="relative z-10 flex-grow pt-16 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-blue-900 scrollbar-track-transparent">
+        <AnimatePresence mode="wait">
+            {activeTab === 'home' && <HomeView key="home" />}
+            {activeTab === 'about' && <AboutView key="about" />}
+            {activeTab === 'experience' && <ExperienceView key="experience" />}
+            {activeTab === 'projects' && <ProjectsView key="projects" onOpenLightbox={() => setIsLightboxVisible(true)} />}
+        </AnimatePresence>
+        
+        {/* Footer inside main content to scroll with it */}
+        <footer className="text-center py-8 text-gray-500 text-xs">
+            <div className="flex justify-center space-x-4 mb-4">
+                <a href="https://linkedin.com/in/rodean-moradi/" target="_blank" className="text-base text-gray-400 hover:text-blue-400 transition duration-300 flex items-center group bg-slate-800/50 px-4 py-2 rounded-full border border-slate-700 hover:border-blue-500/50">
+                    <span className="mr-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
                     </span>
                     LinkedIn
                 </a>
-                <a href="https://github.com/rodeanmoradi" target="_blank" className="text-sm text-gray-300 hover:text-blue-400 transition duration-300 flex items-center group">
-                    <span className="bg-slate-800 p-2 rounded-full mr-2 group-hover:bg-blue-500/20 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.37-1-3.3.26-.52.26-1.42 0-2.05 0 0-1.5-.5-5 1.5-1.2-.35-2.4-.35-3.6 0-3.5-2-5-1.5-5-1.5-.27.63-.27 1.53 0 2.05-.73.93-1.08 2.05-1 3.3 0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.25.86-.55 2.51-1 3.5v1"/></svg>
+                <a href="https://github.com/rodeanmoradi" target="_blank" className="text-base text-gray-400 hover:text-blue-400 transition duration-300 flex items-center group bg-slate-800/50 px-4 py-2 rounded-full border border-slate-700 hover:border-blue-500/50">
+                    <span className="mr-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.37-1-3.3.26-.52.26-1.42 0-2.05 0 0-1.5-.5-5 1.5-1.2-.35-2.4-.35-3.6 0-3.5-2-5-1.5-5-1.5-.27.63-.27 1.53 0 2.05-.73.93-1.08 2.05-1 3.3 0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.25.86-.55 2.51-1 3.5v1"/></svg>
                     </span>
                     GitHub
                 </a>
-            </motion.div>
-        </header>
-
-        {/* Projects Section */}
-        <section className="mb-20 pt-10 px-4">
-            <SectionTitle id="projects">Featured Projects</SectionTitle>
-            <div className="flex flex-col items-center gap-8">
-                
-                {/* Project 1 */}
-                <Card>
-                    <div className="flex justify-between items-start mb-2">
-                        <h3 className="text-xl font-semibold text-white">ML Boxing Coach</h3>
-                        <span className="bg-blue-500/10 text-blue-400 text-xs px-2 py-1 rounded">AI/CV</span>
-                    </div>
-                    <p className="text-xs text-gray-400 mb-4">Python, OpenCV, TensorFlow, PyTorch</p>
-                    <ul className="space-y-2 text-gray-300 list-disc pl-5 text-sm mb-4">
-                        <li>Built a real-time boxing punch classification system (6 types) using **TensorFlow Lite's MoveNet Thunder** for pose keypoint extraction (25-30 FPS).</li>
-                        <li>Trained a custom **PyTorch classifier** achieving **84% accuracy** on 2,000-5,000 labeled punch samples.</li>
-                        <li>Engineered a low-latency inference pipeline, maintaining **end-to-end prediction latency under 70 ms**.</li>
-                    </ul>
-                    <div className="flex justify-end">
-                        <a href="https://github.com/rodeanmoradi" target="_blank" className="text-sm font-medium text-blue-400 hover:text-white flex items-center transition duration-300">
-                            View Code
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 ml-1"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.37-1-3.3.26-.52.26-1.42 0-2.05 0 0-1.5-.5-5 1.5-1.2-.35-2.4-.35-3.6 0-3.5-2-5-1.5-5-1.5-.27.63-.27 1.53 0 2.05-.73.93-1.08 2.05-1 3.3 0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.25.86-.55 2.51-1 3.5v1"/></svg>
-                        </a>
-                    </div>
-                </Card>
-
-                {/* Project 2 - Clickable */}
-                <Card onClick={() => setIsLightboxVisible(true)}>
-                    <div className="flex justify-between items-start mb-2">
-                        <h3 className="text-xl font-semibold text-white">Self-Balancing Robot</h3>
-                        <span className="bg-blue-500/10 text-blue-400 text-xs px-2 py-1 rounded">Embedded</span>
-                    </div>
-                    <p className="text-xs text-gray-400 mb-4">C++, Arduino, Eigen, PID Control, Kalman Filter</p>
-                    <ul className="space-y-2 text-gray-300 list-disc pl-5 text-sm mb-4">
-                        <li>Developed an embedded control pipeline in **C++ on Arduino** with a consistent **100 Hz loop rate (10ms latency)**.</li>
-                        <li>Engineered a custom **Kalman Filter** using the **Eigen library** to fuse IMU data, providing a robust ±2° tilt estimate.</li>
-                        <li>Implemented and fine-tuned a **PID control algorithm** to successfully achieve stable self-balancing within ±15° of vertical.</li>
-                    </ul>
-                    <div className="flex justify-end items-center text-blue-400 text-sm font-medium">
-                        <span className="mr-2">Click for Demos</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
-                    </div>
-                </Card>
-
             </div>
-        </section>
-
-        {/* Experience Section */}
-        <section id="experience" className="mb-20 pt-10 px-4">
-            <SectionTitle>Experience & Skills</SectionTitle>
-            {/* Updated to include flex flex-col items-center gap-8 for centering */}
-            <div className="flex flex-col items-center gap-8 max-w-4xl mx-auto">
-                
-                {/* Experience 1 */}
-                <Card>
-                    <h3 className="text-lg font-semibold text-white">Robotics Software Engineer | Driverless Controls</h3>
-                    <p className="text-sm mb-2 text-blue-400">University of Toronto Formula Racing, Toronto, ON | Sep. 2024 - Present</p>
-                    <ul className="space-y-2 text-gray-300 list-disc pl-5 text-sm">
-                        <li>Contributed to the development of a **Linear Time-Varying Model Predictive Control (LTV-MPC)** algorithm in C++ using **ROS2** for high-speed autonomous path tracking.</li>
-                        <li>**Reduced path deviation by 40%** through comprehensive testing and simulation in RViz and Gazebo.</li>
-                        <li>Conducted comparative analysis of 4+ control algorithms (Stanley, PID, Pure Pursuit, MPC variants) to support LTV-MPC adoption.</li>
-                    </ul>
-                </Card>
-
-                {/* Experience 2 */}
-                <Card delay={0.1}>
-                    <h3 className="text-lg font-semibold text-white">Research Intern | EV Batteries and Chargers</h3>
-                    <p className="text-sm mb-2 text-blue-400">ATOMS Laboratory, Toronto, ON | May - Aug. 2025</p>
-                    <ul className="space-y-2 text-gray-300 list-disc pl-5 text-sm">
-                        <li>Developed Python scripts with **Pandas and Matplotlib** to automate battery testing CSV processing, **reducing manual analysis time by 5x**.</li>
-                        <li>Built multiphysics simulations in **COMSOL** to model thermal properties of Lithium-ion batteries, validating results within 3% error.</li>
-                        <li>3D printed safety components designed in **SOLIDWORKS** to improve reliability during testing.</li>
-                    </ul>
-                </Card>
-
-                {/* Skills */}
-                <div id="skills" className="pt-10 w-full flex justify-center">
-                    <Card delay={0.2}>
-                        <h3 className="text-lg font-semibold text-white mb-4">Core Technical Skills</h3>
-                        <div className="flex flex-wrap gap-3">
-                            {["C/C++", "Python", "ROS2", "PyTorch & TensorFlow", "OpenCV", "Eigen & NumPy", "PID & MPC", "Kalman Filter", "Git/Github", "SolidWorks", "Linux/Ubuntu"].map((skill) => (
-                                <SkillPill key={skill}>{skill}</SkillPill>
-                            ))}
-                        </div>
-                    </Card>
-                </div>
-            </div>
-        </section>
-
-        {/* Footer */}
-        <motion.footer 
-            className="text-center py-8 border-t border-slate-800 mt-12"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true, amount: 0.8 }}
-            transition={{ delay: 0.2 }}
-        >
-            <p className="text-gray-400 text-xs">Rodean Moradi | rodean.moradi@mail.utoronto.ca | +1-647-406-8858</p>
-        </motion.footer>
-
-      </div>
+            <p>Rodean Moradi | rodean.moradi@mail.utoronto.ca</p>
+        </footer>
+      </main>
 
       {/* Lightbox Modal */}
       <Lightbox isVisible={isLightboxVisible} onClose={() => setIsLightboxVisible(false)} />
