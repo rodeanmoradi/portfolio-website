@@ -440,7 +440,7 @@ const AboutView = () => (
             
             {/* Logo with slight white background for visibility */}
             <motion.div 
-                className="bg-slate-200/90 p-6 rounded-xl shadow-lg shadow-blue-500/10 flex-shrink-0 border border-slate-600"
+                className="bg-slate-200/90 p-6 rounded-xl shadow-lg shadow-blue-500/10 flex-shrink-0"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
