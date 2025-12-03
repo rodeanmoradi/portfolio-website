@@ -450,7 +450,7 @@ const ProjectsView = ({ onOpenProject }) => (
                 <li>Engineered a low-latency inference pipeline, maintaining end-to-end prediction latency under <span className="text-white font-semibold">70 ms</span>.</li>
             </ul>
             <div className="flex justify-end items-center text-blue-400 text-sm font-medium hover:text-blue-300 transition-colors">
-                <span className="mr-2">Demo</span>
+                <span className="mr-2">Click For Demo</span>
                 <a 
                     href="https://github.com/rodeanmoradi/boxing-classification" 
                     target="_blank" 
@@ -476,7 +476,7 @@ const ProjectsView = ({ onOpenProject }) => (
                 <li>Implemented and fine-tuned a <span className="text-white font-semibold">PID control algorithm</span> to successfully achieve stable self-balancing within ±15° of vertical.</li>
             </ul>
             <div className="flex justify-end items-center text-blue-400 text-sm font-medium hover:text-blue-300 transition-colors">
-                <span className="mr-2">Demo</span>
+                <span className="mr-2">Click For Demo</span>
                 <a 
                     href="https://github.com/rodeanmoradi/self-balancing-bot" 
                     target="_blank" 
