@@ -2,9 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 
+// Assets
 import kalmanGif from '/assets/kalman.gif';
 import robotDemoGif from '/assets/robot.gif';
 const UofTLogo = "https://upload.wikimedia.org/wikipedia/en/0/04/Utoronto_coa.svg";
+const roboticArmPic = '/assets/arm.png';
+const gearboxGif = '/assets/gearbox.gif';
 
 // --- Configuration ---
 const ACCENT_COLOR_HEX = 0xffffff; // White
@@ -50,6 +53,7 @@ const createCircleTexture = () => {
   return texture;
 };
 
+// Create texture once outside component to avoid memory leaks on re-renders
 const circleTexture = createCircleTexture();
 
 // --- 3D Background Component ---
@@ -303,6 +307,26 @@ const Lightbox = ({ activeProject, onClose }) => {
   if (!activeProject) return null;
 
   const content = {
+    roboticArm: {
+        title: "6-DoF Robotic Arm",
+        items: [
+          {
+            title: "Final CAD",
+            url: roboticArmPic,
+            desc: "Finished CAD file of the robotic arm."
+          }
+        ]
+      },
+    gearbox: {
+    title: "Gearbox Demo",
+    items: [
+        {
+        title: "Working Drill Input Demonstration",
+        url: gearboxGif,
+        desc: "Demo of the gearbox using a drill for power transmission."
+        }
+    ]
+    },
     robot: {
       title: "Self-Balancing Robot Demos",
       items: [
@@ -435,17 +459,17 @@ const ProjectsView = ({ onOpenProject }) => (
     <SectionContainer>
         <h2 className="text-3xl font-bold text-white mb-6 border-b-2 border-blue-500/30 pb-4 inline-block">Featured Projects</h2>
         
-        {/* Project 1 */}
+        {/* Project 1*/}
         <Card onClick={() => onOpenProject('boxing')} delay={0.1}>
             <div className="flex justify-between items-start mb-3">
-                <h3 className="text-2xl font-semibold text-white">ML Boxing Coach</h3>
+                <h3 className="text-2xl font-semibold text-white">ML Boxing Coach (COMING SOON!)</h3>
                 <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded font-bold border border-blue-500/30">ML/CV</span>
             </div>
             <p className="text-sm text-gray-400 mb-4">Python, OpenCV, TensorFlow, PyTorch</p>
             <ul className="space-y-3 text-gray-300 list-disc pl-5 text-sm mb-6 leading-relaxed">
-                <li>Built a real-time boxing punch classification system (6 types) using <span className="text-white font-semibold">TensorFlow Lite's MoveNet Thunder</span> for pose keypoint extraction (25-30 FPS).</li>
-                <li>Trained a custom <span className="text-white font-semibold">PyTorch classifier</span> achieving <span className="text-white font-semibold">84% accuracy</span> on 2,000-5,000 labeled punch samples.</li>
-                <li>Engineered a low-latency inference pipeline, maintaining end-to-end prediction latency under <span className="text-white font-semibold">70 ms</span>.</li>
+                <li>Building a real-time boxing punch classification system (6 types) using <span className="text-white font-semibold">TensorFlow Lite's MoveNet Thunder</span> for pose keypoint extraction (25-30 FPS).</li>
+                <li>Training a custom <span className="text-white font-semibold">PyTorch classifier</span> achieving <span className="text-white font-semibold">X% accuracy</span> on 2,000-5,000 labeled punch samples.</li>
+                <li>Engineering a low-latency inference pipeline, maintaining end-to-end prediction latency under <span className="text-white font-semibold">X ms</span>.</li>
             </ul>
             <div className="flex justify-end items-center text-blue-400 text-sm font-medium hover:text-blue-300 transition-colors">
                 <span className="mr-2">Click For Demo</span>
@@ -461,8 +485,41 @@ const ProjectsView = ({ onOpenProject }) => (
             </div>
         </Card>
 
-        {/* Project 2*/}
-        <Card onClick={() => onOpenProject('robot')} delay={0.2}>
+        {/* Project 2 - Robotic Arm */}
+        <Card onClick={() => onOpenProject('roboticArm')} delay={0.15}>
+            <div className="flex justify-between items-start mb-3">
+                <h3 className="text-2xl font-semibold text-white">6-DoF Robotic Arm</h3>
+                <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded font-bold border border-blue-500/30">Mechanical Design</span>
+            </div>
+            <p className="text-sm text-gray-400 mb-4">SolidWorks</p>
+            <ul className="space-y-3 text-gray-300 list-disc pl-5 text-sm mb-6 leading-relaxed">
+                <li>Utilized <span className="text-white font-semibold">SolidWorks</span> to design a 6-DoF robotic arm for cinematography alongside a group of 4 other mechanical engineering students.</li>
+                <li>Adhered to engineering specifications and effectively followed the <span className="text-white font-semibold">engineering design process</span>.</li>
+                <li>Gained an understanding of <span className="text-white font-semibold">robotics hardware</span> that will prove essential to writing effective code that works in unison with physical components.</li>
+            </ul>
+            <div className="flex justify-end items-center text-blue-400 text-sm font-medium hover:text-blue-300 transition-colors">
+                <span className="mr-2">Click For Demo</span>
+            </div>
+        </Card>
+
+        {/* Project 3 - Gearbox */}
+        <Card onClick={() => onOpenProject('gearbox')} delay={0.2}>
+            <div className="flex justify-between items-start mb-3">
+                <h3 className="text-2xl font-semibold text-white">Two-Stage Reduction Gearbox</h3>
+                <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded font-bold border border-blue-500/30">Mechanical Design</span>
+            </div>
+            <p className="text-sm text-gray-400 mb-4">SolidWorks, FDM 3D Printing</p>
+            <ul className="space-y-3 text-gray-300 list-disc pl-5 text-sm mb-6 leading-relaxed">
+                <li>Designed and 3D printed a <span className="text-white font-semibold">14:1 speed reducing gearbox</span> using SolidWorks.</li>
+                <li>Strengthened <span className="text-white font-semibold">mechanical design fundamentals</span>, laying the necessary framework to develop code that reflects the hardware it will run on for future projects and endeavours.</li>
+            </ul>
+            <div className="flex justify-end items-center text-blue-400 text-sm font-medium hover:text-blue-300 transition-colors">
+                <span className="mr-2">Click For Demo</span>
+            </div>
+        </Card>
+
+        {/* Project 4 - Robot */}
+        <Card onClick={() => onOpenProject('robot')} delay={0.25}>
             <div className="flex justify-between items-start mb-3">
                 <h3 className="text-2xl font-semibold text-white">Self-Balancing Robot</h3>
                 <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded font-bold border border-blue-500/30">Controls/State Estimation</span>
