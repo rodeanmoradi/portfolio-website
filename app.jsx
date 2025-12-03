@@ -4,6 +4,7 @@ import * as THREE from 'three';
 
 import kalmanGif from '/assets/kalman.gif';
 import robotDemoGif from '/assets/robot.gif';
+const UofTLogo = "https://upload.wikimedia.org/wikipedia/en/0/04/Utoronto_coa.svg";
 
 // --- Configuration ---
 const ACCENT_COLOR_HEX = 0xffffff; // White
@@ -11,9 +12,6 @@ const PRIMARY_DARK_HEX = 0x020617; // #020617
 const NUM_NODES = 150; 
 const CONNECTION_DISTANCE = 200; 
 const MOUSE_INTERACTION_RADIUS = 250; 
-
-// Replaced local asset with public URL for portability
-const UofTLogo = "https://upload.wikimedia.org/wikipedia/en/0/04/Utoronto_coa.svg";
 
 // --- HELPER: Font Loader & Global Styles ---
 const FontLoader = () => (
