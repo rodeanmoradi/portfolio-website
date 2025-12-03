@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 
+import kalmanGif from './assets/kalman.gif';
+import robotDemoGif from './assets/robot.gif';
+
 // --- Configuration ---
 const ACCENT_COLOR_HEX = 0xffffff; // White
 const PRIMARY_DARK_HEX = 0x020617; // #020617
@@ -307,12 +310,12 @@ const Lightbox = ({ activeProject, onClose }) => {
       items: [
         {
           title: "Kalman Filter Performance",
-          url: "https://placehold.co/800x600/1E3A8A/FFFFFF?text=Kalman+Filter+Graph",
+          url: kalmanGif,
           desc: "Visualization of raw sensor data versus Kalman-filtered estimate."
         },
         {
           title: "Physical Demonstration",
-          url: "https://placehold.co/800x600/1E3A8A/FFFFFF?text=Self-Balancing+Robot+Demo",
+          url: robotDemoGif,
           desc: "Robot balancing without human intervention."
         }
       ]
