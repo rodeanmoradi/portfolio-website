@@ -426,6 +426,7 @@ const AboutView = () => (
             <div className="space-y-4 text-gray-300 leading-relaxed text-lg">
                 <p>I'm a Mechanical Engineering student at the University of Toronto with a passion for robotics and autonomous systems.</p>
                 <p>Eager to bridge the gap between hardware and software, I specialize in controls, computer vision, and machine learning. My interest lies in building intelligent systems that can solve cool problems in the physical world.</p>
+                <p>I envision myself working on robots in the future, with potential roles being "Robotics Software Engineer" or "Robotics ML Engineer". This portfolio aims to display the relevant projects that I have built and will continue to build in order to develop the necessary software and hardware skills for my chosen career path. As a Robotics Software or ML Engineer, the primary focus of my work will obviously be on software. However, I believe that creating robust software for robots demands a strong understanding of the related hardware. Accordingly, my projects are a combination of software and hardware-focused.</p>
                 <p>When I'm not coding, you can find me lifting, grappling, or watching movies.</p>
             </div>
         </Card>
