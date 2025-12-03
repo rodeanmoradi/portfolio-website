@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
 
-import kalmanGif from './assets/kalman.gif';
-import robotDemoGif from './assets/robot.gif';
+import kalmanGif from '/assets/kalman.gif';
+import robotDemoGif from '/assets/robot.gif';
 
 // --- Configuration ---
 const ACCENT_COLOR_HEX = 0xffffff; // White
