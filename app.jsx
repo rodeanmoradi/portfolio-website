@@ -463,7 +463,7 @@ const ProjectsView = ({ onOpenProject }) => (
             </div>
         </Card>
 
-        {/* Project 2 - Clickable */}
+        {/* Project 2*/}
         <Card onClick={() => onOpenProject('robot')} delay={0.2}>
             <div className="flex justify-between items-start mb-3">
                 <h3 className="text-2xl font-semibold text-white">Self-Balancing Robot</h3>
