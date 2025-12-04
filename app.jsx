@@ -313,7 +313,7 @@ const Lightbox = ({ activeProject, onClose }) => {
           {
             title: "Final CAD",
             url: roboticArmPic,
-            desc: "Finished CAD file of the robotic arm."
+            desc: "This project was a group effort between myself and three other teammates. One of the major lessons I learned in this project was the importance of applying the teamwork skills learned in past design courses (APS111, APS112). Since this project was more self-directed than the previous ones, my team ignored many of the principles of teamwork that had previously been successful. For instance, we did not hold as many check-in meetings. We also took a more independent approach to completing work. This working style made our team unorganized and, while we finished the project on time and were satisfied with the result, I feel like we could have done better if we had incorporated better teamwork styles. Personally, I could have brought the team together more, which is something I often do in group projects but did not do much in this one. Going forward, instead of relying on habitual teamwork styles (which are likely flawed), I will reflect on what has worked and what hasn't in order to contribute to the best of my ability with a group."
           }
         ]
       },
